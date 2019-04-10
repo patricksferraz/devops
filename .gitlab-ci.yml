@@ -6,21 +6,33 @@ stages:
   - build
   - deploy
 
-build_image_gitlab:
+build_image:
   stage: build
   script:
+    - docker build -f Dockerfile --iidfile imageid.txt -t gitlab-docker-heroku:v$CI_PIPELINE_ID .
+  artifacts:
+    paths:
+      - imageid.txt
+
+deploy_gitlab:
+  stage: deploy
+  dependencies:
+    - build-image
+  script:
     - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
-    - docker build --pull -t registry.gitlab.com/patricksferraz/gitlab-docker-heroku:v$CI_PIPELINE_ID -f Dockerfile .
+    - docker tag gitlab-docker-heroku:v$CI_PIPELINE_ID registry.gitlab.com/patricksferraz/gitlab-docker-heroku:v$CI_PIPELINE_ID
     - docker push registry.gitlab.com/patricksferraz/gitlab-docker-heroku:v$CI_PIPELINE_ID
 
-deloy_heroku:
+deploy_heroku_staging:
   stage: deploy
+  dependencies:
+    - build-image
   variables:
     HEROKU_API_KEY: $HEROKU_STAGING_API_KEY
   script:
     - docker login -u _ -p $HEROKU_API_KEY registry.heroku.com
-    - docker build -f Dockerfile --iidfile imageid.txt -t registry.heroku.com/stg-gitlab-docker-heroku .
-    - docker push registry.heroku.com/stg-gitlab-docker-heroku
+    - docker tag gitlab-docker-heroku:v$CI_PIPELINE_ID registry.heroku.com/stg-gitlab-docker-heroku:v$CI_PIPELINE_ID
+    - docker push registry.heroku.com/stg-gitlab-docker-heroku:v$CI_PIPELINE_ID
     - apk add --no-cache curl
     - echo "Docker Image ID is $(cat imageid.txt)"
     - |-
@@ -28,11 +40,19 @@ deloy_heroku:
   only:
     - staging
 
-production:
+deploy_heroku_production:
   stage: deploy
+  dependencies:
+    - build-image
   variables:
     HEROKU_API_KEY: $HEROKU_PRODUCTION_API_KEY
   script:
-    - dpl --provider=heroku --app=gitlab-docker-heroku --api-key=$HEROKU_API_KEY
+    - docker login -u _ -p $HEROKU_API_KEY registry.heroku.com
+    - docker tag gitlab-docker-heroku:v$CI_PIPELINE_ID registry.heroku.com/gitlab-docker-heroku:v$CI_PIPELINE_ID
+    - docker push registry.heroku.com/gitlab-docker-heroku:v$CI_PIPELINE_ID
+    - apk add --no-cache curl
+    - echo "Docker Image ID is $(cat imageid.txt)"
+    - |-
+      curl -X PATCH https://api.heroku.com/apps/gitlab-docker-heroku/formation --header "Content-Type: application/json" --header "Accept: application/vnd.heroku+json; version=3.docker-releases" --header "Authorization: Bearer ${HEROKU_API_KEY}" --data '{ "updates": [ { "type": "web", "docker_image": "'$(cat imageid.txt)'" } ] }'
   only:
     - master
