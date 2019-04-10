@@ -17,7 +17,7 @@ build_image:
 deploy_gitlab:
   stage: deploy
   dependencies:
-    - build-image
+    - build_image
   script:
     - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
     - docker tag gitlab-docker-heroku:v$CI_PIPELINE_ID registry.gitlab.com/patricksferraz/gitlab-docker-heroku:v$CI_PIPELINE_ID
@@ -26,7 +26,7 @@ deploy_gitlab:
 deploy_heroku_staging:
   stage: deploy
   dependencies:
-    - build-image
+    - build_image
   variables:
     HEROKU_API_KEY: $HEROKU_STAGING_API_KEY
   script:
@@ -43,7 +43,7 @@ deploy_heroku_staging:
 deploy_heroku_production:
   stage: deploy
   dependencies:
-    - build-image
+    - build_image
   variables:
     HEROKU_API_KEY: $HEROKU_PRODUCTION_API_KEY
   script:
