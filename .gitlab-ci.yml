@@ -12,7 +12,7 @@ deploy_gitlab:
     - docker build -f Dockerfile --pull -t registry.gitlab.com/patricksferraz/gitlab-docker-heroku:v$CI_PIPELINE_ID .
     - docker push registry.gitlab.com/patricksferraz/gitlab-docker-heroku:v$CI_PIPELINE_ID
 
-deploy_heroku_production:
+deploy_heroku_develop:
   stage: deploy
   variables:
     HEROKU_API_KEY: $HEROKU_DEVELOP_API_KEY
