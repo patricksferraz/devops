@@ -12,6 +12,21 @@ deploy_gitlab:
     - docker build -f Dockerfile --pull -t registry.gitlab.com/patricksferraz/gitlab-docker-heroku:v$CI_PIPELINE_ID .
     - docker push registry.gitlab.com/patricksferraz/gitlab-docker-heroku:v$CI_PIPELINE_ID
 
+deploy_heroku_production:
+  stage: deploy
+  variables:
+    HEROKU_API_KEY: $HEROKU_DEVELOP_API_KEY
+  script:
+    - docker login -u _ -p $HEROKU_API_KEY registry.heroku.com
+    - docker build -f Dockerfile --iidfile imageid.txt -t registry.heroku.com/dev-gitlab-docker-heroku:v$CI_PIPELINE_ID .
+    - docker push registry.heroku.com/dev-gitlab-docker-heroku:v$CI_PIPELINE_ID
+    - apk add --no-cache curl
+    - echo "Docker Image ID is $(cat imageid.txt)"
+    - |-
+      curl -X PATCH https://api.heroku.com/apps/dev-gitlab-docker-heroku/formation --header "Content-Type: application/json" --header "Accept: application/vnd.heroku+json; version=3.docker-releases" --header "Authorization: Bearer ${HEROKU_API_KEY}" --data '{ "updates": [ { "type": "web", "docker_image": "'$(cat imageid.txt)'" } ] }'
+  only:
+    - develop
+
 deploy_heroku_staging:
   stage: deploy
   variables:
